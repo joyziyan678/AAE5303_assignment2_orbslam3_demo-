@@ -1,0 +1,18 @@
+{
+  "group_name": "Gogogo",
+  "ground_truth_file": "/root/ORB_SLAM3/ground_truth.txt",
+  "estimated_file": "/root/ORB_SLAM3/CameraTrajectory.txt",
+  "gt_poses": 1955,
+  "estimated_poses": 2056,
+  "matched_poses": 1014,
+  "completeness_percent": 51.87,
+  "ate_rmse_m": 98.1391,
+  "ate_mean_m": 68.6322,
+  "ate_std_m": 70.1492,
+  "rpe_delta_m": 10.0,
+  "rpe_trans_mean_m": 17.5707,
+  "rpe_trans_drift_rate_m_per_m": 1.7571,
+  "rpe_rot_mean_deg": 15.0491,
+  "rpe_rot_drift_rate_deg_per_100m": 150.4906,
+  "t_max_diff_s": 0.1
+}
