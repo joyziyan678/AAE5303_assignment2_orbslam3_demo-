@@ -1,235 +1,470 @@
-# ORB-SLAM3
+# AAE5303 Assignment: Visual Odometry with ORB-SLAM3
 
-### V1.0, December 22th, 2021
-**Authors:** Carlos Campos, Richard Elvira, Juan J. Gómez Rodríguez, [José M. M. Montiel](http://webdiis.unizar.es/~josemari/), [Juan D. Tardos](http://webdiis.unizar.es/~jdtardos/).
+ORB-SLAM3 VO Dataset Status
 
-The [Changelog](https://github.com/UZ-SLAMLab/ORB_SLAM3/blob/master/Changelog.md) describes the features of each version.
+**Monocular Visual Odometry Evaluation on UAV Aerial Imagery**
 
-ORB-SLAM3 is the first real-time SLAM library able to perform **Visual, Visual-Inertial and Multi-Map SLAM** with **monocular, stereo and RGB-D** cameras, using **pin-hole and fisheye** lens models. In all sensor configurations, ORB-SLAM3 is as robust as the best systems available in the literature, and significantly more accurate. 
+_Hong Kong Island GNSS Dataset - MARS-LVIG_
 
-We provide examples to run ORB-SLAM3 in the [EuRoC dataset](http://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets) using stereo or monocular, with or without IMU, and in the [TUM-VI dataset](https://vision.in.tum.de/data/datasets/visual-inertial-dataset) using fisheye stereo or monocular, with or without IMU. Videos of some example executions can be found at [ORB-SLAM3 channel](https://www.youtube.com/channel/UCXVt-kXG6T95Z4tVaYlU80Q).
+---
 
-This software is based on [ORB-SLAM2](https://github.com/raulmur/ORB_SLAM2) developed by [Raul Mur-Artal](http://webdiis.unizar.es/~raulmur/), [Juan D. Tardos](http://webdiis.unizar.es/~jdtardos/), [J. M. M. Montiel](http://webdiis.unizar.es/~josemari/) and [Dorian Galvez-Lopez](http://doriangalvez.com/) ([DBoW2](https://github.com/dorian3d/DBoW2)).
+## 📋 Table of Contents
 
-<a href="https://youtu.be/HyLNq-98LRo" target="_blank"><img src="https://img.youtube.com/vi/HyLNq-98LRo/0.jpg" 
-alt="ORB-SLAM3" width="240" height="180" border="10" /></a>
+1. Executive Summary
+2. Introduction
+3. Methodology
+4. Dataset Description
+5. Implementation Details
+6. Results and Analysis
+7. Visualizations
+8. Discussion
+9. Conclusions
+10. References
+11. Appendix
 
-### Related Publications:
+---
 
-[ORB-SLAM3] Carlos Campos, Richard Elvira, Juan J. Gómez Rodríguez, José M. M. Montiel and Juan D. Tardós, **ORB-SLAM3: An Accurate Open-Source Library for Visual, Visual-Inertial and Multi-Map SLAM**, *IEEE Transactions on Robotics 37(6):1874-1890, Dec. 2021*. **[PDF](https://arxiv.org/abs/2007.11898)**.
+## 📊 Executive Summary
 
-[IMU-Initialization] Carlos Campos, J. M. M. Montiel and Juan D. Tardós, **Inertial-Only Optimization for Visual-Inertial Initialization**, *ICRA 2020*. **[PDF](https://arxiv.org/pdf/2003.05766.pdf)**
+This report presents the implementation and evaluation of **Monocular Visual Odometry (VO)** using the **ORB-SLAM3** framework on the **HKisland_GNSS03** UAV aerial imagery dataset. The project evaluates trajectory accuracy against RTK ground truth using **four parallel, monocular-appropriate metrics** computed with the `evo` toolkit.
 
-[ORBSLAM-Atlas] Richard Elvira, J. M. M. Montiel and Juan D. Tardós, **ORBSLAM-Atlas: a robust and accurate multi-map system**, *IROS 2019*. **[PDF](https://arxiv.org/pdf/1908.11585.pdf)**.
+### Key Results
 
-[ORBSLAM-VI] Raúl Mur-Artal, and Juan D. Tardós, **Visual-inertial monocular SLAM with map reuse**, IEEE Robotics and Automation Letters, vol. 2 no. 2, pp. 796-803, 2017. **[PDF](https://arxiv.org/pdf/1610.05949.pdf)**. 
+| Metric              | Value                 | Description                                               |
+| ------------------- | --------------------- | --------------------------------------------------------- |
+| **ATE RMSE**        | **97.9091 m**         | Global accuracy after Sim(3) alignment (scale corrected)  |
+| **RPE Trans Drift** | **1.7585 m/m**        | Translation drift rate (mean error per meter, delta=10 m) |
+| **RPE Rot Drift**   | **151.0589 deg/100m** | Rotation drift rate (mean angle per 100 m, delta=10 m)    |
+| **Completeness**    | **97.03%**            | Matched poses / GT poses in evaluation window (1013 / 1044) |
+| **Estimated poses**| 2,056                 | Trajectory poses in CameraTrajectory.txt                  |
 
-[Stereo and RGB-D] Raúl Mur-Artal and Juan D. Tardós. **ORB-SLAM2: an Open-Source SLAM System for Monocular, Stereo and RGB-D Cameras**. *IEEE Transactions on Robotics,* vol. 33, no. 5, pp. 1255-1262, 2017. **[PDF](https://arxiv.org/pdf/1610.06475.pdf)**.
+Evaluation is performed over the **time window where both ground truth and estimated trajectory exist** (ground truth trimmed to estimated range; no interpolation). Full sequence: 1,955 GT poses; evaluation window: 1,044 GT poses.
 
-[Monocular] Raúl Mur-Artal, José M. M. Montiel and Juan D. Tardós. **ORB-SLAM: A Versatile and Accurate Monocular SLAM System**. *IEEE Transactions on Robotics,* vol. 31, no. 5, pp. 1147-1163, 2015. (**2015 IEEE Transactions on Robotics Best Paper Award**). **[PDF](https://arxiv.org/pdf/1502.00956.pdf)**.
+---
 
-[DBoW2 Place Recognition] Dorian Gálvez-López and Juan D. Tardós. **Bags of Binary Words for Fast Place Recognition in Image Sequences**. *IEEE Transactions on Robotics,* vol. 28, no. 5, pp. 1188-1197, 2012. **[PDF](http://doriangalvez.com/php/dl.php?dlp=GalvezTRO12.pdf)**
+## 📖 Introduction
 
-# 1. License
+### Background
 
-ORB-SLAM3 is released under [GPLv3 license](https://github.com/UZ-SLAMLab/ORB_SLAM3/LICENSE). For a list of all code/library dependencies (and associated licenses), please see [Dependencies.md](https://github.com/UZ-SLAMLab/ORB_SLAM3/blob/master/Dependencies.md).
+ORB-SLAM3 is a state-of-the-art visual SLAM system capable of performing:
 
-For a closed-source version of ORB-SLAM3 for commercial purposes, please contact the authors: orbslam (at) unizar (dot) es.
+* **Monocular Visual Odometry** (pure camera-based)
+* **Stereo Visual Odometry**
+* **Visual-Inertial Odometry** (with IMU fusion)
+* **Multi-map SLAM** with relocalization
 
-If you use ORB-SLAM3 in an academic work, please cite:
-  
-    @article{ORBSLAM3_TRO,
-      title={{ORB-SLAM3}: An Accurate Open-Source Library for Visual, Visual-Inertial 
-               and Multi-Map {SLAM}},
-      author={Campos, Carlos AND Elvira, Richard AND G\´omez, Juan J. AND Montiel, 
-              Jos\'e M. M. AND Tard\'os, Juan D.},
-      journal={IEEE Transactions on Robotics}, 
-      volume={37},
-      number={6},
-      pages={1874-1890},
-      year={2021}
-     }
+This assignment focuses on **Monocular VO mode**, which:
 
-# 2. Prerequisites
-We have tested the library in **Ubuntu 16.04** and **18.04**, but it should be easy to compile in other platforms. A powerful computer (e.g. i7) will ensure real-time performance and provide more stable and accurate results.
+* Uses only camera images for pose estimation
+* Cannot observe absolute scale (scale ambiguity)
+* Relies on feature matching (ORB features) for tracking
+* Is susceptible to drift without loop closure
 
-## C++11 or C++0x Compiler
-We use the new thread and chrono functionalities of C++11.
+### Objectives
 
-## Pangolin
-We use [Pangolin](https://github.com/stevenlovegrove/Pangolin) for visualization and user interface. Dowload and install instructions can be found at: https://github.com/stevenlovegrove/Pangolin.
+1. Implement monocular Visual Odometry using ORB-SLAM3
+2. Process UAV aerial imagery from the HKisland_GNSS03 dataset
+3. Extract RTK (Real-Time Kinematic) GPS data as ground truth
+4. Evaluate trajectory accuracy using four parallel metrics appropriate for monocular VO
+5. Document the complete workflow for reproducibility
 
-## OpenCV
-We use [OpenCV](http://opencv.org) to manipulate images and features. Dowload and install instructions can be found at: http://opencv.org. **Required at leat 3.0. Tested with OpenCV 3.2.0 and 4.4.0**.
+### Scope
 
-## Eigen3
-Required by g2o (see below). Download and install instructions can be found at: http://eigen.tuxfamily.org. **Required at least 3.1.0**.
+This assignment evaluates:
 
-## DBoW2 and g2o (Included in Thirdparty folder)
-We use modified versions of the [DBoW2](https://github.com/dorian3d/DBoW2) library to perform place recognition and [g2o](https://github.com/RainerKuemmerle/g2o) library to perform non-linear optimizations. Both modified libraries (which are BSD) are included in the *Thirdparty* folder.
+* **ATE (Absolute Trajectory Error)**: Global trajectory accuracy after Sim(3) alignment (monocular-friendly)
+* **RPE drift rates (translation + rotation)**: Local consistency (drift per traveled distance)
+* **Completeness**: Robustness / coverage (how much of the sequence is successfully tracked and evaluated)
 
-## Python
-Required to calculate the alignment of the trajectory with the ground truth. **Required Numpy module**.
+---
 
-* (win) http://www.python.org/downloads/windows
-* (deb) `sudo apt install libpython2.7-dev`
-* (mac) preinstalled with osx
+## 🔬 Methodology
 
-## ROS (optional)
+### ORB-SLAM3 Visual Odometry Overview
 
-We provide some examples to process input of a monocular, monocular-inertial, stereo, stereo-inertial or RGB-D camera using ROS. Building these examples is optional. These have been tested with ROS Melodic under Ubuntu 18.04.
-
-# 3. Building ORB-SLAM3 library and examples
-
-Clone the repository:
-```
-git clone https://github.com/UZ-SLAMLab/ORB_SLAM3.git ORB_SLAM3
-```
-
-We provide a script `build.sh` to build the *Thirdparty* libraries and *ORB-SLAM3*. Please make sure you have installed all required dependencies (see section 2). Execute:
-```
-cd ORB_SLAM3
-chmod +x build.sh
-./build.sh
-```
-
-This will create **libORB_SLAM3.so**  at *lib* folder and the executables in *Examples* folder.
-
-# 4. Running ORB-SLAM3 with your camera
-
-Directory `Examples` contains several demo programs and calibration files to run ORB-SLAM3 in all sensor configurations with Intel Realsense cameras T265 and D435i. The steps needed to use your own camera are: 
-
-1. Calibrate your camera following `Calibration_Tutorial.pdf` and write your calibration file `your_camera.yaml`
-
-2. Modify one of the provided demos to suit your specific camera model, and build it
-
-3. Connect the camera to your computer using USB3 or the appropriate interface
-
-4. Run ORB-SLAM3. For example, for our D435i camera, we would execute:
+ORB-SLAM3 performs visual odometry through the following pipeline:
 
 ```
-./Examples/Stereo-Inertial/stereo_inertial_realsense_D435i Vocabulary/ORBvoc.txt ./Examples/Stereo-Inertial/RealSense_D435i.yaml
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Input Image    │────▶│   ORB Feature   │────▶│   Feature       │
+│  Sequence       │     │   Extraction    │     │   Matching      │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                         │
+┌─────────────────┐     ┌─────────────────┐     ┌────────▼────────┐
+│   Trajectory    │◀────│   Pose          │◀────│   Motion        │
+│   Output        │     │   Estimation    │     │   Model         │
+└─────────────────┘     └────────┬────────┘     └─────────────────┘
+                                 │
+                        ┌────────▼────────┐
+                        │   Local Map     │
+                        │   Optimization  │
+                        └─────────────────┘
 ```
 
-# 5. EuRoC Examples
-[EuRoC dataset](http://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets) was recorded with two pinhole cameras and an inertial sensor. We provide an example script to launch EuRoC sequences in all the sensor configurations.
+### Evaluation Metrics
 
-1. Download a sequence (ASL format) from http://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets
+#### 1. ATE (Absolute Trajectory Error)
 
-2. Open the script "euroc_examples.sh" in the root of the project. Change **pathDatasetEuroc** variable to point to the directory where the dataset has been uncompressed. 
+Measures the RMSE of the aligned trajectory after Sim(3) alignment:
 
-3. Execute the following script to process all the sequences with all sensor configurations:
+$$ATE_{RMSE} = \sqrt{\frac{1}{N}\sum_{i=1}^{N}|\mathbf{p}_{est}^i - \mathbf{p}_{gt}^i|^2}$$
+
+**Reference**: Sturm et al., "A Benchmark for the Evaluation of RGB-D SLAM Systems", IROS 2012
+
+#### 2. RPE (Relative Pose Error) – Drift Rates
+
+Measures local consistency by comparing relative transformations:
+
+$$RPE_{trans} = |\Delta\mathbf{p}_{est} - \Delta\mathbf{p}_{gt}|$$
+
+where $\Delta\mathbf{p} = \mathbf{p}(t+\Delta) - \mathbf{p}(t)$
+
+**Reference**: Geiger et al., "Vision meets Robotics: The KITTI Dataset", IJRR 2013
+
+We report drift as **rates**:
+
+* **Translation drift rate** (m/m): $\text{RPE}_{trans,mean} / \Delta d$
+* **Rotation drift rate** (deg/100m): $(\text{RPE}_{rot,mean} / \Delta d) \times 100$
+
+where $\Delta d$ is a distance interval in meters (e.g., 10 m).
+
+#### 3. Completeness
+
+Completeness measures how many ground-truth poses (in the evaluation window) can be associated and evaluated:
+
+$$Completeness = \frac{N_{matched}}{N_{gt}} \times 100\%$$
+
+Here, the evaluation window is the time range where the estimated trajectory exists; ground truth is trimmed to this window so the denominator is the number of GT poses in that window (no interpolation).
+
+### Trajectory Alignment
+
+We use Sim(3) (7-DOF) alignment:
+
+* **3-DOF Translation**: Align trajectory origins
+* **3-DOF Rotation**: Align trajectory orientations
+* **1-DOF Scale**: Compensate for monocular scale ambiguity
+
+### Evaluation Protocol
+
+#### Inputs
+
+* **Ground truth**: `ground_truth.txt` (TUM format); for evaluation, trimmed to estimated time range → `ground_truth_trimmed.txt`
+* **Estimated trajectory**: `CameraTrajectory.txt` (TUM format, all tracked frames)
+* **Association threshold**: `t_max_diff = 0.1 s`
+* **Distance delta for RPE**: `delta = 10 m`
+
+#### Step 1 — ATE with Sim(3) alignment (scale corrected)
+
+```bash
+evo_ape tum ground_truth_trimmed.txt CameraTrajectory.txt \
+  --align --correct_scale \
+  --t_max_diff 0.1 -va
 ```
-./euroc_examples
+
+#### Step 2 — RPE (translation + rotation) in the distance domain
+
+```bash
+evo_rpe tum ground_truth_trimmed.txt CameraTrajectory.txt \
+  --align --correct_scale --t_max_diff 0.1 \
+  --delta 10 --delta_unit m --pose_relation trans_part -va
+
+evo_rpe tum ground_truth_trimmed.txt CameraTrajectory.txt \
+  --align --correct_scale --t_max_diff 0.1 \
+  --delta 10 --delta_unit m --pose_relation angle_deg -va
 ```
 
-## Evaluation
-EuRoC provides ground truth for each sequence in the IMU body reference. As pure visual executions report trajectories centered in the left camera, we provide in the "evaluation" folder the transformation of the ground truth to the left camera reference. Visual-inertial trajectories use the ground truth from the dataset.
+#### Step 3 — Completeness
 
-Execute the following script to process sequences and compute the RMS ATE:
+Completeness = matched_poses / gt_poses_in_window × 100%, with ground truth trimmed to the estimated trajectory time range (no interpolation).
+
+---
+
+## 📁 Dataset Description
+
+### HKisland_GNSS03 Dataset
+
+The dataset is from the **MARS-LVIG** UAV dataset, captured over Hong Kong Island.
+
+| Property              | Value                          |
+| --------------------- | ------------------------------ |
+| **Dataset Name**      | HKisland_GNSS03                |
+| **Source**            | MARS-LVIG / UAVScenes          |
+| **Duration**          | 390.78 seconds (~6.5 minutes)  |
+| **Total Images**      | 3,911 frames (rgb.txt)         |
+| **Image Resolution**  | 2448 × 2048 pixels             |
+| **Frame Rate**        | ~10 Hz                         |
+| **Trajectory Length** | ~1,902 meters                  |
+
+### Data Sources
+
+| Resource          | Link                                    |
+| ----------------- | --------------------------------------- |
+| MARS-LVIG Dataset | https://mars.hku.hk/dataset.html        |
+| UAVScenes GitHub  | https://github.com/sijieaaa/UAVScenes   |
+
+### Ground Truth
+
+| Property              | Value                                |
+| --------------------- | ------------------------------------ |
+| **RTK Positions**     | 1,955 poses (full sequence)          |
+| **Rate**              | 5 Hz                                 |
+| **Accuracy**          | ±2 cm (horizontal), ±5 cm (vertical) |
+| **Coordinate System** | WGS84 → Local ENU                    |
+
+---
+
+## ⚙️ Implementation Details
+
+### System Configuration
+
+| Component            | Specification             |
+| -------------------- | ------------------------- |
+| **Framework**        | ORB-SLAM3 (C++)           |
+| **Mode**             | Monocular Visual Odometry |
+| **Vocabulary**       | ORBvoc.txt (pre-trained)  |
+| **Camera config**    | Examples/Monocular/HKisland_Mono.yaml |
+
+### Camera Calibration (HKisland_Mono.yaml)
+
 ```
-./euroc_eval_examples
+Camera.type: "PinHole"
+Camera1.fx: 1444.43
+Camera1.fy: 1444.34
+Camera1.cx: 1179.50
+Camera1.cy: 1044.90
+Camera1.k1: -0.0560   Camera1.k2: 0.1180
+Camera1.p1: 0.00122   Camera1.p2: 0.00064   Camera1.k3: -0.0627
+Camera.width: 2448    Camera.height: 2048
+Camera.fps: 10
 ```
 
-# 6. TUM-VI Examples
-[TUM-VI dataset](https://vision.in.tum.de/data/datasets/visual-inertial-dataset) was recorded with two fisheye cameras and an inertial sensor.
+### ORB Feature Extraction Parameters
 
-1. Download a sequence from https://vision.in.tum.de/data/datasets/visual-inertial-dataset and uncompress it.
+| Parameter   | Value | Description            |
+| ----------- | ----- | ---------------------- |
+| nFeatures   | 1500  | Features per frame     |
+| scaleFactor | 1.2   | Pyramid scale factor   |
+| nLevels     | 8     | Pyramid levels         |
+| iniThFAST   | 20    | Initial FAST threshold |
+| minThFAST   | 7     | Minimum FAST threshold |
 
-2. Open the script "tum_vi_examples.sh" in the root of the project. Change **pathDatasetTUM_VI** variable to point to the directory where the dataset has been uncompressed. 
+---
 
-3. Execute the following script to process all the sequences with all sensor configurations:
+## 📈 Results and Analysis
+
+### Evaluation Results
+
 ```
-./tum_vi_examples
+================================================================================
+VISUAL ODOMETRY EVALUATION RESULTS
+================================================================================
+
+Ground Truth (full):      RTK trajectory (1,955 poses)
+Ground Truth (window):   Trimmed to est. time range (1,044 poses)
+Estimated:                ORB-SLAM3 camera trajectory (2,056 poses)
+Matched Poses:            1,013 / 1,044 (97.03%)  ← Completeness
+
+METRIC 1: ATE (Absolute Trajectory Error)
+────────────────────────────────────────
+RMSE:   97.9091 m
+Mean:   68.2671 m
+Std:    70.1841 m
+
+METRIC 2: RPE Translation Drift (distance-based, delta=10 m)
+────────────────────────────────────────
+Mean translational RPE over 10 m: 17.5853 m
+Translation drift rate:           1.7585 m/m
+
+METRIC 3: RPE Rotation Drift (distance-based, delta=10 m)
+────────────────────────────────────────
+Mean rotational RPE over 10 m: 15.1059 deg
+Rotation drift rate:        151.0589 deg/100m
+
+================================================================================
 ```
 
-## Evaluation
-In TUM-VI ground truth is only available in the room where all sequences start and end. As a result the error measures the drift at the end of the sequence. 
+### Trajectory Alignment Statistics
 
-Execute the following script to process sequences and compute the RMS ATE:
+| Parameter                           | Value                          |
+| ----------------------------------- | ------------------------------ |
+| **Sim(3) scale correction**         | ~0.851                         |
+| **Association threshold**           | t_max_diff = 0.1 s             |
+| **Association rate (Completeness)** | 97.03%                         |
+| **Evaluation window**               | GT trimmed to est. time range (no interpolation) |
+
+### Performance Summary
+
+| Metric              | Value           | Description                    |
+| ------------------- | --------------- | ------------------------------ |
+| **ATE RMSE**        | 97.91 m         | Global error after alignment   |
+| **RPE Trans Drift** | 1.76 m/m        | Local translation drift rate   |
+| **RPE Rot Drift**   | 151.06 deg/100m | Local rotation drift rate      |
+| **Completeness**    | 97.03%          | Matched in evaluation window   |
+
+---
+
+## 📊 Visualizations
+
+### Trajectory Comparison
+
+![Trajectory Evaluation](figures/trajectory_evaluation.png)
+
+This figure is generated from the same inputs used for evaluation (`ground_truth_trimmed.txt` and `CameraTrajectory.txt`) and includes:
+
+1. **Top-Left**: 2D trajectory before alignment (matched poses only). Scale/rotation mismatch typical for monocular VO.
+2. **Top-Right**: 2D trajectory after Sim(3) alignment (scale corrected). Remaining discrepancy reflects drift and local tracking errors.
+3. **Bottom-Left**: Distribution of ATE translation errors (meters) over all matched poses.
+4. **Bottom-Right**: ATE translation error as a function of the matched pose index (highlights where drift accumulates).
+
+**Reproducibility**: run `evo_ape` with `--save_results ate.zip`, then:
+
+```bash
+python3 scripts/generate_report_figures.py --from-report --json evaluation_report.json
 ```
-./tum_vi_eval_examples
+
+---
+
+## 💭 Discussion
+
+### Strengths
+
+1. **High evaluation coverage**: 97.03% completeness in the evaluation window indicates that almost all GT poses in the common time range can be associated and evaluated.
+2. **End-to-end pipeline**: The system produces a TUM trajectory and can be evaluated reproducibly with evo and the provided scripts.
+3. **Transparent evaluation**: Ground truth is trimmed to the estimated trajectory time range (no interpolation), so completeness is a real tracking/evaluation rate.
+
+### Limitations
+
+1. **Tracking start delay**: Estimated trajectory begins after ~15 s of the sequence (initialization / early tracking loss), so full-sequence completeness would be lower without trimming.
+2. **Drift**: Translation and rotation drift rates remain significant for long trajectories without loop closure.
+3. **No loop closure**: Pure VO mode accumulates drift over time.
+
+### Error Sources
+
+1. **UAV motion**: Fast motion and motion blur can affect feature tracking.
+2. **Feature extraction**: ORB parameters may be tuned for better robustness on high-resolution aerial imagery.
+3. **Calibration**: Camera intrinsics and distortion affect pose quality.
+
+---
+
+## 🎯 Conclusions
+
+This assignment demonstrates monocular Visual Odometry using ORB-SLAM3 on UAV aerial imagery (HKisland_GNSS03). Key findings:
+
+1. ✅ **System operation**: ORB-SLAM3 runs on the image sequence and outputs a TUM trajectory.
+2. ✅ **Evaluation coverage**: 97.03% completeness in the evaluation window (ground truth trimmed to estimated time range).
+3. ⚠️ **Accuracy**: ATE RMSE and RPE drift rates reflect typical monocular VO drift on this sequence; tuning and/or VIO could improve results.
+
+### Recommendations for Improvement
+
+| Priority | Action                          | Expected effect              |
+| -------- | ------------------------------- | ---------------------------- |
+| High     | Increase nFeatures (e.g. 2000+) | Better tracking/completeness |
+| High     | Lower FAST thresholds           | More keypoints in low contrast |
+| Medium   | Verify camera calibration       | Better pose accuracy         |
+| Low      | Enable IMU (VIO mode)           | Scale and drift improvement  |
+
+---
+
+## 📚 References
+
+1. Campos, C., Elvira, R., Rodríguez, J. J. G., Montiel, J. M., & Tardós, J. D. (2021). **ORB-SLAM3: An Accurate Open-Source Library for Visual, Visual-Inertial and Multi-Map SLAM**. _IEEE Transactions on Robotics_, 37(6), 1874-1890.
+2. Sturm, J., Engelhard, N., Endres, F., Burgard, W., & Cremers, D. (2012). **A Benchmark for the Evaluation of RGB-D SLAM Systems**. _IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)_.
+3. Geiger, A., Lenz, P., & Urtasun, R. (2012). **Are we ready for Autonomous Driving? The KITTI Vision Benchmark Suite**. _IEEE Conference on Computer Vision and Pattern Recognition (CVPR)_.
+4. MARS-LVIG Dataset: https://mars.hku.hk/dataset.html
+5. ORB-SLAM3 GitHub: https://github.com/UZ-SLAMLab/ORB_SLAM3
+
+---
+
+## 📎 Appendix
+
+### A. Repository Structure (AAE5303 evaluation)
+
+```
+ORB_SLAM3/
+├── README_AAE5303.md           # This report
+├── HOW_TO_EVALUATE.md          # Evaluation guide
+├── evaluation_report.json      # Main evaluation output (ATE, RPE, completeness)
+├── evaluation_result.json      # Template-format results (optional)
+├── ground_truth.txt            # Full RTK trajectory (TUM)
+├── ground_truth_trimmed.txt    # GT trimmed to est. time range
+├── CameraTrajectory.txt        # ORB-SLAM3 per-frame trajectory
+├── KeyFrameTrajectory.txt      # Keyframe trajectory (not used for this eval)
+├── figures/
+│   └── trajectory_evaluation.png   # 2×2 Trajectory Comparison figure
+├── scripts/
+│   ├── evaluate_vo_accuracy.py     # ATE, RPE, completeness (uses trimmed GT by default)
+│   ├── generate_report_figures.py  # Trajectory Comparison 4-panel figure
+│   ├── evaluate_vo_accuracy_template.py  # JSON in assignment template format
+│   ├── interpolate_trajectory_at_gt.py   # Optional: interpolate est. at GT times
+│   └── extract_tum_from_bag.py      # Extract images + rgb.txt from ROS bag
+├── data/
+│   ├── HKisland_GNSS03.bag
+│   └── tum_sequence/           # rgb.txt + rgb/*.png
+├── Examples/Monocular/
+│   └── HKisland_Mono.yaml      # Camera + ORB settings
+└── docs/
+    ├── 作业评估一步一步.md
+    └── 终端一步一步实现指南.md
 ```
 
-# 7. ROS Examples
+### B. Running Commands
 
-### Building the nodes for mono, mono-inertial, stereo, stereo-inertial and RGB-D
-Tested with ROS Melodic and ubuntu 18.04.
+```bash
+# 1. Extract images from ROS bag (TUM format)
+python3 scripts/extract_tum_from_bag.py data/HKisland_GNSS03.bag -o data/tum_sequence
 
-1. Add the path including *Examples/ROS/ORB_SLAM3* to the ROS_PACKAGE_PATH environment variable. Open .bashrc file:
-  ```
-  gedit ~/.bashrc
-  ```
-and add at the end the following line. Replace PATH by the folder where you cloned ORB_SLAM3:
+# 2. Extract RTK ground truth (TUM format)
+# (run the Python snippet in HOW_TO_EVALUATE.md or docs/终端一步一步实现指南.md)
 
-  ```
-  export ROS_PACKAGE_PATH=${ROS_PACKAGE_PATH}:PATH/ORB_SLAM3/Examples/ROS
-  ```
-  
-2. Execute `build_ros.sh` script:
+# 3. Build and run ORB-SLAM3 monocular
+mkdir -p build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j4
+cd ..
+./Examples/Monocular/mono_tum Vocabulary/ORBvoc.txt Examples/Monocular/HKisland_Mono.yaml data/tum_sequence
 
-  ```
-  chmod +x build_ros.sh
-  ./build_ros.sh
-  ```
-  
-### Running Monocular Node
-For a monocular input from topic `/camera/image_raw` run node ORB_SLAM3/Mono. You will need to provide the vocabulary file and a settings file. See the monocular examples above.
+# 4. Evaluate trajectory (ATE, RPE, completeness; GT trimmed to est. window by default)
+python3 scripts/evaluate_vo_accuracy.py \
+  --groundtruth ground_truth.txt \
+  --estimated CameraTrajectory.txt \
+  --t-max-diff 0.1 --delta-m 10 \
+  --json-out evaluation_report.json
 
-  ```
-  rosrun ORB_SLAM3 Mono PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE
-  ```
+# 5. Generate Trajectory Comparison figure (requires ate.zip from evo_ape --save_results)
+rm -f ate.zip
+evo_ape tum ground_truth_trimmed.txt CameraTrajectory.txt \
+  --align --correct_scale --t_max_diff 0.1 -va --save_results ate.zip
+python3 scripts/generate_report_figures.py --from-report --json evaluation_report.json
+```
 
-### Running Monocular-Inertial Node
-For a monocular input from topic `/camera/image_raw` and an inertial input from topic `/imu`, run node ORB_SLAM3/Mono_Inertial. Setting the optional third argument to true will apply CLAHE equalization to images (Mainly for TUM-VI dataset).
+### C. Native evo Commands
 
-  ```
-  rosrun ORB_SLAM3 Mono PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE [EQUALIZATION]	
-  ```
+```bash
+# ATE (Sim(3) alignment + scale correction)
+evo_ape tum ground_truth_trimmed.txt CameraTrajectory.txt \
+  --align --correct_scale --t_max_diff 0.1 -va
 
-### Running Stereo Node
-For a stereo input from topic `/camera/left/image_raw` and `/camera/right/image_raw` run node ORB_SLAM3/Stereo. You will need to provide the vocabulary file and a settings file. For Pinhole camera model, if you **provide rectification matrices** (see Examples/Stereo/EuRoC.yaml example), the node will recitify the images online, **otherwise images must be pre-rectified**. For FishEye camera model, rectification is not required since system works with original images:
+# RPE translation (delta = 10 m)
+evo_rpe tum ground_truth_trimmed.txt CameraTrajectory.txt \
+  --align --correct_scale --t_max_diff 0.1 \
+  --delta 10 --delta_unit m --pose_relation trans_part -va
 
-  ```
-  rosrun ORB_SLAM3 Stereo PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE ONLINE_RECTIFICATION
-  ```
+# RPE rotation (delta = 10 m)
+evo_rpe tum ground_truth_trimmed.txt CameraTrajectory.txt \
+  --align --correct_scale --t_max_diff 0.1 \
+  --delta 10 --delta_unit m --pose_relation angle_deg -va
+```
 
-### Running Stereo-Inertial Node
-For a stereo input from topics `/camera/left/image_raw` and `/camera/right/image_raw`, and an inertial input from topic `/imu`, run node ORB_SLAM3/Stereo_Inertial. You will need to provide the vocabulary file and a settings file, including rectification matrices if required in a similar way to Stereo case:
+### D. Output Trajectory Format (TUM)
 
-  ```
-  rosrun ORB_SLAM3 Stereo_Inertial PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE ONLINE_RECTIFICATION [EQUALIZATION]	
-  ```
-  
-### Running RGB_D Node
-For an RGB-D input from topics `/camera/rgb/image_raw` and `/camera/depth_registered/image_raw`, run node ORB_SLAM3/RGBD. You will need to provide the vocabulary file and a settings file. See the RGB-D example above.
+```
+# timestamp x y z qx qy qz qw
+1698132964.816207 -0.019883508 0.016566988 -0.096414186 ...
+...
+```
 
-  ```
-  rosrun ORB_SLAM3 RGBD PATH_TO_VOCABULARY PATH_TO_SETTINGS_FILE
-  ```
+---
 
-**Running ROS example:** Download a rosbag (e.g. V1_02_medium.bag) from the EuRoC dataset (http://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets). Open 3 tabs on the terminal and run the following command at each tab for a Stereo-Inertial configuration:
-  ```
-  roscore
-  ```
-  
-  ```
-  rosrun ORB_SLAM3 Stereo_Inertial Vocabulary/ORBvoc.txt Examples/Stereo-Inertial/EuRoC.yaml true
-  ```
-  
-  ```
-  rosbag play --pause V1_02_medium.bag /cam0/image_raw:=/camera/left/image_raw /cam1/image_raw:=/camera/right/image_raw /imu0:=/imu
-  ```
-  
-Once ORB-SLAM3 has loaded the vocabulary, press space in the rosbag tab.
+**AAE5303 - Robust Control Technology in Low-Altitude Aerial Vehicle**
 
-**Remark:** For rosbags from TUM-VI dataset, some play issue may appear due to chunk size. One possible solution is to rebag them with the default chunk size, for example:
-  ```
-  rosrun rosbag fastrebag.py dataset-room1_512_16.bag dataset-room1_512_16_small_chunks.bag
-  ```
+_Department of Aeronautical and Aviation Engineering_
 
-# 8. Running time analysis
-A flag in `include\Config.h` activates time measurements. It is necessary to uncomment the line `#define REGISTER_TIMES` to obtain the time stats of one execution which is shown at the terminal and stored in a text file(`ExecTimeMean.txt`).
-
-# 9. Calibration
-You can find a tutorial for visual-inertial calibration and a detailed description of the contents of valid configuration files at  `Calibration_Tutorial.pdf`
+_The Hong Kong Polytechnic University_
